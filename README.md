@@ -35,11 +35,9 @@ kubectl get kafkatopic flows-export -w
 
 ### Prepare NetObserv
 
-Assuming you already installed the operator, now you must create a `FlowCollector` resource that will start sending flow logs to Kafka. We don't need to setup Loki if all we need is the flows into Kafka (and later into Clickhouse).
+Assuming you already installed the operator, now you must create a `FlowCollector` resource that will start sending flow logs to Kafka. We don't need to setup Loki if all we want are the flows into Kafka / Clickhouse.
 
-Note that we configure here Kafka as an **exporter**: this is different from the config `deploymentModel: KAFKA`, and from the `spec.kafka` setting, which correspond to NetObserv's internal deployment mode and can be set independently.
-
-In other words, you can use Kafka for NetObserv internal flows processing (here NetObserv is both the producer and the consumer) and/or as an exporter (here NetObserv is the producer and you need to manage the consuming side).
+Note that we configure here Kafka as an **exporter**, which is unrelated to the `spec.deploymentModel: KAFKA` / `spec.kafka` settings: those ones correspond to NetObserv's internal flows processing configuration (NetObserv being both the producer and the consumer), whereas `spec.exporters` relates to NetObserv being just the producer, leaving up to us how we want to consume it.
 
 ```bash
 cat <<EOF | kubectl apply -f -
@@ -80,7 +78,7 @@ It will create a clickhouse service in the `default` namespace, bridged to your 
 
 ### Run this sample app
 
-Now that almost all pieces are up and running, we just need to fill the gap with a Kafka consumer that will send flows to Clickhouse. This is what this repository is about. Just run:
+Now that almost all pieces are up and running, we just need to bring the missing one: a Kafka consumer that will send flows to Clickhouse. This is what this repository is about. Just run:
 
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/jotak/kafka-clickhouse-example/main/contrib/deployment.yaml -n netobserv
@@ -106,6 +104,15 @@ Query id: ba2e551b-4219-4762-b44b-1d8f0b234387
 ┌─src_ip──────┬─dst_ip──────┬─src_name──────────────────────────────────┬─dst_name──────────────────────────────────┬─src_kind─┬─dst_kind─┬─src_namespace─┬─dst_namespace─┬─bytes─┬─packets─┐
 │ 10.0.189.25 │ 10.0.204.65 │ ip-10-0-189-25.eu-west-3.compute.internal │ ip-10-0-204-65.eu-west-3.compute.internal │ Node     │ Node     │               │               │    66 │       1 │
 └─────────────┴─────────────┴───────────────────────────────────────────┴───────────────────────────────────────────┴──────────┴──────────┴───────────────┴───────────────┴───────┴─────────┘
+┌─src_ip──────┬─dst_ip──────┬─src_name─────────┬─dst_name───────────────────────┬─src_kind─┬─dst_kind─┬─src_namespace────────┬─dst_namespace───────────┬─bytes─┬─packets─┐
+│ 10.128.2.17 │ 10.129.0.30 │ prometheus-k8s-0 │ etcd-operator-5d9f6db48c-gqdg7 │ Pod      │ Pod      │ openshift-monitoring │ openshift-etcd-operator │   114 │       1 │
+└─────────────┴─────────────┴──────────────────┴────────────────────────────────┴──────────┴──────────┴──────────────────────┴─────────────────────────┴───────┴─────────┘
+┌─src_ip───────┬─dst_ip──────┬─src_name───────────────────────────────────┬─dst_name──────────────────────────────────┬─src_kind─┬─dst_kind─┬─src_namespace─┬─dst_namespace─┬─bytes─┬─packets─┐
+│ 10.0.206.142 │ 10.0.155.14 │ ip-10-0-206-142.eu-west-3.compute.internal │ ip-10-0-155-14.eu-west-3.compute.internal │ Node     │ Node     │               │               │   125 │       1 │
+└──────────────┴─────────────┴────────────────────────────────────────────┴───────────────────────────────────────────┴──────────┴──────────┴───────────────┴───────────────┴───────┴─────────┘
+┌─src_ip──────┬─dst_ip──────┬─src_name─────────┬─dst_name───────────────────────┬─src_kind─┬─dst_kind─┬─src_namespace────────┬─dst_namespace───────────┬─bytes─┬─packets─┐
+│ 10.128.2.17 │ 10.129.0.30 │ prometheus-k8s-0 │ etcd-operator-5d9f6db48c-gqdg7 │ Pod      │ Pod      │ openshift-monitoring │ openshift-etcd-operator │   228 │       2 │
+└─────────────┴─────────────┴──────────────────┴────────────────────────────────┴──────────┴──────────┴──────────────────────┴─────────────────────────┴───────┴─────────┘
 ┌─src_ip──────┬─dst_ip───────┬─src_name──────────────────────────────────┬─dst_name─┬─src_kind─┬─dst_kind─┬─src_namespace─┬─dst_namespace─┬─bytes─┬─packets─┐
 │ 10.0.189.25 │ 10.0.173.213 │ ip-10-0-189-25.eu-west-3.compute.internal │          │ Node     │          │               │               │   587 │       1 │
 └─────────────┴──────────────┴───────────────────────────────────────────┴──────────┴──────────┴──────────┴───────────────┴───────────────┴───────┴─────────┘
