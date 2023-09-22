@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-clickhouse-example
+  labels:
+    app: kafka-clickhouse-example
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: kafka-clickhouse-example
+  template:
+    metadata:
+      labels:
+        app: kafka-clickhouse-example
+    spec:
+      containers:
+        - name: kafka-clickhouse-example
+          image: quay.io/jotak/kafka-clickhouse-example:latest
+          args:
+          - "-kafkaurl"
+          - "kafka-cluster-kafka-bootstrap.netobserv"
+          imagePullPolicy: Always
