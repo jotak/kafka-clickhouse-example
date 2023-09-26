@@ -70,8 +70,11 @@ func setupTable(conn driver.Conn) error {
 	if err := conn.Exec(context.Background(), `DROP TABLE IF EXISTS flows`); err != nil {
 		return err
 	}
+	// TODO: use DateTime
 	if err := conn.Exec(context.Background(), `
     CREATE TABLE IF NOT EXISTS flows (
+				start String,
+				end String,
         src_ip String,
         dst_ip String,
         src_name String,

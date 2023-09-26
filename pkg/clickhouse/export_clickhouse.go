@@ -2,7 +2,6 @@ package clickhouse
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/netobserv/flowlogs-pipeline/pkg/utils"
@@ -39,9 +38,15 @@ func StartClickhouseExport(url string, out chan map[string]interface{}) {
 func process(conn driver.Conn, rawFlow map[string]interface{}) {
 	klog.Tracef("Exporting to clickhouse: %v", rawFlow)
 	var (
-		srcAddr, dstAddr, srcName, dstName, srcKind, dstKind, srcNamespace, dstNamespace string
-		bytes, packets                                                                   int
+		flowStart, flowEnd, srcAddr, dstAddr, srcName, dstName, srcKind, dstKind, srcNamespace, dstNamespace string
+		bytes, packets                                                                                       int
 	)
+	if v, ok := rawFlow["TimeFlowStartMs"]; ok {
+		flowStart = v.(string)
+	}
+	if v, ok := rawFlow["TimeFlowEndMs"]; ok {
+		flowEnd = v.(string)
+	}
 	if v, ok := rawFlow[fields.SrcAddr]; ok {
 		srcAddr = v.(string)
 	}
@@ -72,10 +77,11 @@ func process(conn driver.Conn, rawFlow map[string]interface{}) {
 	if v, ok := rawFlow[fields.Packets]; ok {
 		packets = int(v.(float64))
 	}
-	q := fmt.Sprintf("INSERT INTO flows VALUES ('%s','%s','%s','%s','%s','%s','%s','%s','%d','%d')",
-		srcAddr, dstAddr, srcName, dstName, srcKind, dstKind, srcNamespace, dstNamespace, bytes, packets,
-	)
-	if err := conn.Exec(context.Background(), q); err != nil {
+	if err := conn.Exec(
+		context.Background(),
+		"INSERT INTO flows VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+		flowStart, flowEnd, srcAddr, dstAddr, srcName, dstName, srcKind, dstKind, srcNamespace, dstNamespace, bytes, packets,
+	); err != nil {
 		klog.Warnf("Insertion error: %v", err)
 	}
 }

@@ -20,11 +20,10 @@ For simplicity of deployment, we will deploy Clickhouse locally and use [ktunnel
 # Create a namespace for all the deployments
 kubectl create namespace netobserv
 
-# Install Strimzi (Kafka)
+# Install Strimzi (Kafka) and create topic
 kubectl apply -f https://strimzi.io/install/latest?namespace=netobserv -n netobserv
-DEFAULT_SC=$(kubectl get storageclass -o=jsonpath='{.items[?(@.metadata.annotations.storageclass\.kubernetes\.io/is-default-class=="true")].metadata.name}') && echo "Using SC $DEFAULT_SC"
-curl -s -L "https://raw.githubusercontent.com/netobserv/documents/main/examples/kafka/default.yaml" | envsubst | kubectl apply -n netobserv -f -
-kubectl apply -f https://raw.githubusercontent.com/jotak/kafka-clickhouse-example/main/contrib/topic.yaml -n netobserv
+export DEFAULT_SC=$(kubectl get storageclass -o=jsonpath='{.items[?(@.metadata.annotations.storageclass\.kubernetes\.io/is-default-class=="true")].metadata.name}') && echo "Using SC $DEFAULT_SC"
+curl -s -L "https://raw.githubusercontent.com/jotak/kafka-clickhouse-example/main/contrib/kafka.yaml" | envsubst | kubectl apply -n netobserv -f -
 
 # Wait to see all pods up and running (a few minutes...)
 kubectl get pods -n netobserv -w
