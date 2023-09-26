@@ -25,11 +25,9 @@ kubectl apply -f https://strimzi.io/install/latest?namespace=netobserv -n netobs
 export DEFAULT_SC=$(kubectl get storageclass -o=jsonpath='{.items[?(@.metadata.annotations.storageclass\.kubernetes\.io/is-default-class=="true")].metadata.name}') && echo "Using SC $DEFAULT_SC"
 curl -s -L "https://raw.githubusercontent.com/jotak/kafka-clickhouse-example/main/contrib/kafka.yaml" | envsubst | kubectl apply -n netobserv -f -
 
-# Wait to see all pods up and running (a few minutes...)
-kubectl get pods -n netobserv -w
-
-# Make sure the created Kafka topic is Ready
-kubectl get kafkatopic flows-export -w
+# Wait that all pods are up and running, with the KafkaTopic being ready (a few minutes...)
+kubectl wait --timeout=180s --for=condition=ready kafkatopic flows-export -n netobserv
+kubectl get pods -n netobserv
 ```
 
 ### Prepare NetObserv
@@ -90,39 +88,49 @@ Now we can verify that flows are getting their way to the database. We can use t
 ```bash
 ./clickhouse client
 
-cartago :) SELECT * FROM flows
+cartago :) SELECT fromUnixTimestamp(intDiv(start,1000)) AS start,fromUnixTimestamp(intDiv(end,1000)) as end,src_ip,dst_ip,src_name,dst_name,src_kind,dst_kind,src_namespace,dst_namespace,bytes,packets FROM flows LIMIT 100
 
-SELECT *
+SELECT
+    fromUnixTimestamp(intDiv(start, 1000)) AS start,
+    fromUnixTimestamp(intDiv(end, 1000)) AS end,
+    src_ip,
+    dst_ip,
+    src_name,
+    dst_name,
+    src_kind,
+    dst_kind,
+    src_namespace,
+    dst_namespace,
+    bytes,
+    packets
 FROM flows
+LIMIT 100
 
-Query id: ba2e551b-4219-4762-b44b-1d8f0b234387
+Query id: 21f7ccfc-59ec-4e80-b601-9f5220bf4ffb
 
-┌─src_ip──────┬─dst_ip──────┬─src_name──────────────────────────────────┬─dst_name──────────────────────────────────┬─src_kind─┬─dst_kind─┬─src_namespace─┬─dst_namespace─┬─bytes─┬─packets─┐
-│ 10.0.204.65 │ 10.0.189.25 │ ip-10-0-204-65.eu-west-3.compute.internal │ ip-10-0-189-25.eu-west-3.compute.internal │ Node     │ Node     │               │               │   132 │       2 │
-└─────────────┴─────────────┴───────────────────────────────────────────┴───────────────────────────────────────────┴──────────┴──────────┴───────────────┴───────────────┴───────┴─────────┘
-┌─src_ip──────┬─dst_ip──────┬─src_name──────────────────────────────────┬─dst_name──────────────────────────────────┬─src_kind─┬─dst_kind─┬─src_namespace─┬─dst_namespace─┬─bytes─┬─packets─┐
-│ 10.0.189.25 │ 10.0.204.65 │ ip-10-0-189-25.eu-west-3.compute.internal │ ip-10-0-204-65.eu-west-3.compute.internal │ Node     │ Node     │               │               │    66 │       1 │
-└─────────────┴─────────────┴───────────────────────────────────────────┴───────────────────────────────────────────┴──────────┴──────────┴───────────────┴───────────────┴───────┴─────────┘
-┌─src_ip──────┬─dst_ip──────┬─src_name─────────┬─dst_name───────────────────────┬─src_kind─┬─dst_kind─┬─src_namespace────────┬─dst_namespace───────────┬─bytes─┬─packets─┐
-│ 10.128.2.17 │ 10.129.0.30 │ prometheus-k8s-0 │ etcd-operator-5d9f6db48c-gqdg7 │ Pod      │ Pod      │ openshift-monitoring │ openshift-etcd-operator │   114 │       1 │
-└─────────────┴─────────────┴──────────────────┴────────────────────────────────┴──────────┴──────────┴──────────────────────┴─────────────────────────┴───────┴─────────┘
-┌─src_ip───────┬─dst_ip──────┬─src_name───────────────────────────────────┬─dst_name──────────────────────────────────┬─src_kind─┬─dst_kind─┬─src_namespace─┬─dst_namespace─┬─bytes─┬─packets─┐
-│ 10.0.206.142 │ 10.0.155.14 │ ip-10-0-206-142.eu-west-3.compute.internal │ ip-10-0-155-14.eu-west-3.compute.internal │ Node     │ Node     │               │               │   125 │       1 │
-└──────────────┴─────────────┴────────────────────────────────────────────┴───────────────────────────────────────────┴──────────┴──────────┴───────────────┴───────────────┴───────┴─────────┘
-┌─src_ip──────┬─dst_ip──────┬─src_name─────────┬─dst_name───────────────────────┬─src_kind─┬─dst_kind─┬─src_namespace────────┬─dst_namespace───────────┬─bytes─┬─packets─┐
-│ 10.128.2.17 │ 10.129.0.30 │ prometheus-k8s-0 │ etcd-operator-5d9f6db48c-gqdg7 │ Pod      │ Pod      │ openshift-monitoring │ openshift-etcd-operator │   228 │       2 │
-└─────────────┴─────────────┴──────────────────┴────────────────────────────────┴──────────┴──────────┴──────────────────────┴─────────────────────────┴───────┴─────────┘
-┌─src_ip──────┬─dst_ip───────┬─src_name──────────────────────────────────┬─dst_name─┬─src_kind─┬─dst_kind─┬─src_namespace─┬─dst_namespace─┬─bytes─┬─packets─┐
-│ 10.0.189.25 │ 10.0.173.213 │ ip-10-0-189-25.eu-west-3.compute.internal │          │ Node     │          │               │               │   587 │       1 │
-└─────────────┴──────────────┴───────────────────────────────────────────┴──────────┴──────────┴──────────┴───────────────┴───────────────┴───────┴─────────┘
-┌─src_ip──────┬─dst_ip───────┬─src_name──────────────────────────────────┬─dst_name─┬─src_kind─┬─dst_kind─┬─src_namespace─┬─dst_namespace─┬─bytes─┬─packets─┐
-│ 10.0.189.25 │ 10.0.173.213 │ ip-10-0-189-25.eu-west-3.compute.internal │          │ Node     │          │               │               │   327 │       2 │
-└─────────────┴──────────────┴───────────────────────────────────────────┴──────────┴──────────┴──────────┴───────────────┴───────────────┴───────┴─────────┘
-┌─src_ip───────┬─dst_ip──────┬─src_name───────────────────────────────────┬─dst_name──────────────────────────────────┬─src_kind─┬─dst_kind─┬─src_namespace─┬─dst_namespace─┬─bytes─┬─packets─┐
-│ 10.0.206.142 │ 10.0.189.25 │ ip-10-0-206-142.eu-west-3.compute.internal │ ip-10-0-189-25.eu-west-3.compute.internal │ Node     │ Node     │               │               │  1531 │       1 │
-└──────────────┴─────────────┴────────────────────────────────────────────┴───────────────────────────────────────────┴──────────┴──────────┴───────────────┴───────────────┴───────┴─────────┘
 
+┌───────────────start─┬─────────────────end─┬─src_ip──────┬─dst_ip──────┬─src_name─────────┬─dst_name────────────────────────┬─src_kind─┬─dst_kind─┬─src_namespace────────┬─dst_namespace─────┬─bytes─┬─packets─┐
+│ 2023-09-26 10:10:32 │ 2023-09-26 10:10:32 │ 10.128.2.13 │ 10.128.2.10 │ prometheus-k8s-0 │ router-default-559c74465f-fh8n6 │ Pod      │ Pod      │ openshift-monitoring │ openshift-ingress │  2649 │       1 │
+└─────────────────────┴─────────────────────┴─────────────┴─────────────┴──────────────────┴─────────────────────────────────┴──────────┴──────────┴──────────────────────┴───────────────────┴───────┴─────────┘
+┌───────────────start─┬─────────────────end─┬─src_ip──────┬─dst_ip──────┬─src_name──────────────────────────────────┬─dst_name─┬─src_kind─┬─dst_kind─┬─src_namespace─┬─dst_namespace─┬─bytes─┬─packets─┐
+│ 2023-09-26 10:10:31 │ 2023-09-26 10:10:31 │ 10.0.144.30 │ 10.0.40.195 │ ip-10-0-144-30.eu-west-3.compute.internal │          │ Node     │          │               │               │    66 │       1 │
+└─────────────────────┴─────────────────────┴─────────────┴─────────────┴───────────────────────────────────────────┴──────────┴──────────┴──────────┴───────────────┴───────────────┴───────┴─────────┘
+┌───────────────start─┬─────────────────end─┬─src_ip──────┬─dst_ip──────┬─src_name────────────────┬─dst_name──────────────┬─src_kind─┬─dst_kind─┬─src_namespace─┬─dst_namespace─┬─bytes─┬─packets─┐
+│ 2023-09-26 10:10:30 │ 2023-09-26 10:10:30 │ 10.129.0.55 │ 10.129.2.21 │ flowlogs-pipeline-hz8mz │ kafka-cluster-kafka-1 │ Pod      │ Pod      │ netobserv     │ netobserv     │  4309 │       4 │
+└─────────────────────┴─────────────────────┴─────────────┴─────────────┴─────────────────────────┴───────────────────────┴──────────┴──────────┴───────────────┴───────────────┴───────┴─────────┘
+┌───────────────start─┬─────────────────end─┬─src_ip───────┬─dst_ip──────┬─src_name───────────────────────────────────┬─dst_name──────────────────────────────────┬─src_kind─┬─dst_kind─┬─src_namespace─┬─dst_namespace─┬─bytes─┬─packets─┐
+│ 2023-09-26 10:10:31 │ 2023-09-26 10:10:31 │ 10.0.200.252 │ 10.0.211.51 │ ip-10-0-200-252.eu-west-3.compute.internal │ ip-10-0-211-51.eu-west-3.compute.internal │ Node     │ Node     │               │               │   124 │       1 │
+└─────────────────────┴─────────────────────┴──────────────┴─────────────┴────────────────────────────────────────────┴───────────────────────────────────────────┴──────────┴──────────┴───────────────┴───────────────┴───────┴─────────┘
+┌───────────────start─┬─────────────────end─┬─src_ip──────┬─dst_ip──────────┬─src_name──────────────────────────────────┬─dst_name─┬─src_kind─┬─dst_kind─┬─src_namespace─┬─dst_namespace─┬─bytes─┬─packets─┐
+│ 2023-09-26 10:10:33 │ 2023-09-26 10:10:33 │ 10.0.144.30 │ 169.254.169.254 │ ip-10-0-144-30.eu-west-3.compute.internal │          │ Node     │          │               │               │   304 │       1 │
+└─────────────────────┴─────────────────────┴─────────────┴─────────────────┴───────────────────────────────────────────┴──────────┴──────────┴──────────┴───────────────┴───────────────┴───────┴─────────┘
+┌───────────────start─┬─────────────────end─┬─src_ip──────┬─dst_ip──────┬─src_name─────────┬─dst_name──────────────────────────────────┬─src_kind─┬─dst_kind─┬─src_namespace────────┬─dst_namespace─┬─bytes─┬─packets─┐
+│ 2023-09-26 10:10:34 │ 2023-09-26 10:10:34 │ 10.129.2.14 │ 10.0.211.51 │ prometheus-k8s-1 │ ip-10-0-211-51.eu-west-3.compute.internal │ Pod      │ Node     │ openshift-monitoring │               │    66 │       1 │
+└─────────────────────┴─────────────────────┴─────────────┴─────────────┴──────────────────┴───────────────────────────────────────────┴──────────┴──────────┴──────────────────────┴───────────────┴───────┴─────────┘
+┌───────────────start─┬─────────────────end─┬─src_ip──────┬─dst_ip─────┬─src_name────────────────────────────┬─dst_name──────────────────────────────────┬─src_kind─┬─dst_kind─┬─src_namespace────────────────┬─dst_namespace─┬─bytes─┬─packets─┐
+│ 2023-09-26 10:10:33 │ 2023-09-26 10:10:33 │ 10.129.0.13 │ 10.129.0.2 │ controller-manager-565b9fb799-vz9w9 │ ip-10-0-211-51.eu-west-3.compute.internal │ Pod      │ Node     │ openshift-controller-manager │               │    66 │       1 │
+└─────────────────────┴─────────────────────┴─────────────┴────────────┴─────────────────────────────────────┴───────────────────────────────────────────┴──────────┴──────────┴──────────────────────────────┴───────────────┴───────┴─────────┘
 ```
 
-We're done!
+We made it!
 \o/

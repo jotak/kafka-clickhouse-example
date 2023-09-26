@@ -73,8 +73,8 @@ func setupTable(conn driver.Conn) error {
 	// TODO: use DateTime
 	if err := conn.Exec(context.Background(), `
     CREATE TABLE IF NOT EXISTS flows (
-				start String,
-				end String,
+				start Float64,
+				end Float64,
         src_ip String,
         dst_ip String,
         src_name String,

@@ -38,14 +38,15 @@ func StartClickhouseExport(url string, out chan map[string]interface{}) {
 func process(conn driver.Conn, rawFlow map[string]interface{}) {
 	klog.Tracef("Exporting to clickhouse: %v", rawFlow)
 	var (
-		flowStart, flowEnd, srcAddr, dstAddr, srcName, dstName, srcKind, dstKind, srcNamespace, dstNamespace string
-		bytes, packets                                                                                       int
+		flowStart, flowEnd                                                               float64
+		srcAddr, dstAddr, srcName, dstName, srcKind, dstKind, srcNamespace, dstNamespace string
+		bytes, packets                                                                   int
 	)
 	if v, ok := rawFlow["TimeFlowStartMs"]; ok {
-		flowStart = v.(string)
+		flowStart = v.(float64)
 	}
 	if v, ok := rawFlow["TimeFlowEndMs"]; ok {
-		flowEnd = v.(string)
+		flowEnd = v.(float64)
 	}
 	if v, ok := rawFlow[fields.SrcAddr]; ok {
 		srcAddr = v.(string)
