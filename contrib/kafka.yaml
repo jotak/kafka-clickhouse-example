@@ -30,13 +30,13 @@ spec:
       log.segment.bytes: 1073741824
     storage:
       type: persistent-claim
-      size: 200Gi
+      size: 20Gi
       class: ${DEFAULT_SC}
   zookeeper:
     replicas: 3
     storage:
       type: persistent-claim
-      size: 20Gi
+      size: 5Gi
       class: ${DEFAULT_SC}
 ---
 apiVersion: kafka.strimzi.io/v1beta2
