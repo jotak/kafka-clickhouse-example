@@ -38,6 +38,9 @@ spec:
       type: persistent-claim
       size: 5Gi
       class: ${DEFAULT_SC}
+  entityOperator:
+    topicOperator: {}
+    userOperator: {}
 ---
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
